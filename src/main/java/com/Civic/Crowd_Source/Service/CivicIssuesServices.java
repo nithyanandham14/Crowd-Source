@@ -78,7 +78,7 @@ public class CivicIssuesServices {
         }
     }
 
-    // Retrieve all issues (filtering can be enhanced)
+    // Retrieve all (filtering can be enhanced)
     public List<Issues> getIssuesByFilters(String state, String district, String department) {
         return issuesRepo.findAll();
     }
