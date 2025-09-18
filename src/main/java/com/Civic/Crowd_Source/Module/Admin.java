@@ -9,17 +9,23 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "users")
-public class User {
+public class Admin {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int UserId;
-    @Column(unique = true,nullable = false)
-    private String userName;
+    private int Id;
+    @Column(nullable = false)
+    private String adminName;
+
+    @Column(nullable = false)
+    private String state;
+
+    @Column(nullable = false)
+    private String district;
+
+    @Column(nullable = false)
+    private String department;
+
     @Column(nullable = false)
     private String password;
-    @Column(unique = true,nullable = false)
-    private String mobileNumber;
-
 
 }
