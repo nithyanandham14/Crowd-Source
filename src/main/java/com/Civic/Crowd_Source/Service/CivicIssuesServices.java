@@ -80,7 +80,6 @@ public class CivicIssuesServices {
 
     // Retrieve all issues (filtering can be enhanced)
     public List<Issues> getIssuesByFilters(String state, String district, String department) {
-        // TODO: Implement actual filtering logic based on Admin parameters
         return issuesRepo.findAll();
     }
 
