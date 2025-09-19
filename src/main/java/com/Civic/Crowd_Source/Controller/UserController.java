@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
@@ -18,9 +20,10 @@ public class UserController {
     private UserService userservice;
     @Autowired
     private CivicIssuesServices civicissueService;
-    @PostMapping("/login")
-    public ResponseEntity<?> loginUser(@RequestParam String identifier,
-                                       @RequestParam String password) {
+    @PostMapping("/login")//verified
+    public ResponseEntity<?> loginUser(@RequestBody Map<String,String>loginData) {
+        String identifier = loginData.get("identifier");
+        String password = loginData.get("password");
         // identifier can be username or email or mobile
         User user = userservice.login(identifier, password);
         if (user == null) {
@@ -29,7 +32,7 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
     // New registration endpoint
-    @PostMapping("/signup")
+    @PostMapping("/signup")//verified
     public ResponseEntity<?> registerUser(@Valid @RequestBody UserRegistrationDto dto) {
         try {
             User user = userservice.registerUser(dto);

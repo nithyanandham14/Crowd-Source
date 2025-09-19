@@ -13,6 +13,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/Admin")
 public class AdminController {
+
     @Autowired
     private CivicIssuesServices civicIssuesServices;
     @Autowired
