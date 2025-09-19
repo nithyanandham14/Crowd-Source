@@ -14,6 +14,7 @@ import java.util.List;
 @RequestMapping("/api/issues")
 public class CivicIssuesController {
     @Autowired
+
     private CivicIssuesServices civicIssuesServices;
     // Submit a new issue with multimedia and location data
     @PostMapping("/submit")
