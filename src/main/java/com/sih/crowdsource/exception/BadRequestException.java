@@ -1,0 +1,8 @@
+package com.sih.crowdsource.exception;
+
+public class BadRequestException extends RuntimeException {
+
+    public BadRequestException(String message) {
+        super(message);
+    }
+}
