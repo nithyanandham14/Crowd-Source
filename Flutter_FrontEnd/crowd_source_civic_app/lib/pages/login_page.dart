@@ -61,7 +61,7 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Demo: demo@test.com / password',
+                          'Demo: test@test.com / password',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.blue[800],
@@ -136,24 +136,28 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> login() async {
-    // Dummy Login Check
-    if (_emailController.text == 'test@test.com' &&
-        _passwordController.text == 'password') {
+    // Validate inputs
+    if (_emailController.text.trim().isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Welcome Tester! (Dummy Login)')),
-        );
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const WidgetTree()),
-          (route) => false,
+          const SnackBar(content: Text('Please enter your email')),
         );
       }
       return;
     }
 
+    if (_passwordController.text.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter your password')),
+        );
+      }
+      return;
+    }
+
+    // Call new JWT login API
     final user = await ApiService.login(
-      _emailController.text,
+      _emailController.text.trim(),
       _passwordController.text,
     );
 

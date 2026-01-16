@@ -1,17 +1,12 @@
-// ignore_for_file: depend_on_referenced_packages, use_build_context_synchronously, deprecated_member_use
+// ignore_for_file: use_build_context_synchronously, unused_field, deprecated_member_use
 
-import 'dart:io';
+import 'package:crowd_source_civic_app/Data/models/complaint_priority.dart';
+import 'package:crowd_source_civic_app/Data/models/complaint_request.dart';
+import 'package:crowd_source_civic_app/Data/models/department.dart';
 import 'package:crowd_source_civic_app/services/api_service.dart';
 import 'package:crowd_source_civic_app/Data/value_notifier.dart';
-import 'package:file_picker/file_picker.dart';
-// import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:image_picker/image_picker.dart';
-// import 'package:record/record.dart'; // record ^6.x changes
-import 'package:record/record.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -25,199 +20,52 @@ class _ReportPageState extends State<ReportPage> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
 
-  File? _image;
-  File? _voiceMsg;
-  File? _video;
   Position? _currentPosition;
   bool _isSubmitting = false;
-  bool _isRecording = false;
+  bool _isLoadingDepartments = true;
 
-  final ImagePicker _picker = ImagePicker();
-  late AudioRecorder _audioRecorder;
+  // New fields for Spring Boot  backend
+  ComplaintPriority _selectedPriority = ComplaintPriority.MEDIUM;
+  Department? _selectedDepartment;
+  List<Department> _departments = [];
 
   @override
   void initState() {
     super.initState();
-    _audioRecorder = AudioRecorder();
+    _loadDepartments();
   }
 
   @override
   void dispose() {
-    _audioRecorder.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
     _addressController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Photo Gallery'),
-              onTap: () {
-                _getImage(ImageSource.gallery);
-                Navigator.of(context).pop();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('Camera'),
-              onTap: () {
-                _getImage(ImageSource.camera);
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Future<void> _loadDepartments() async {
+    setState(() => _isLoadingDepartments = true);
 
-  Future<void> _getImage(ImageSource source) async {
-    final XFile? pickedFile = await _picker.pickImage(source: source);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
-    }
-  }
+    final departments = await ApiService.getDepartments();
 
-  Future<void> _pickAudio() async {
-    showModalBottomSheet(
-      context: context,
-      isDismissible: !_isRecording,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return SafeArea(
-            child: Wrap(
-              children: [
-                if (!_isRecording) ...[
-                  ListTile(
-                    leading: const Icon(Icons.mic, color: Colors.red),
-                    title: const Text('Record Audio'),
-                    onTap: () async {
-                      await _startRecording(setModalState);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.audio_file),
-                    title: const Text('Pick Audio File'),
-                    onTap: () async {
-                      await _pickAudioFile();
-                      if (mounted) Navigator.of(context).pop();
-                    },
-                  ),
-                ] else ...[
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.mic, size: 48, color: Colors.red),
-                        const SizedBox(height: 16),
-                        const Text(
-                          "Recording in progress...",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            await _stopRecording();
-                            if (mounted) Navigator.of(context).pop();
-                          },
-                          icon: const Icon(Icons.stop),
-                          label: const Text("STOP RECORDING"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _pickAudioFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
-    );
-
-    if (result != null) {
-      setState(() {
-        _voiceMsg = File(result.files.single.path!);
-      });
-    }
-  }
-
-  Future<void> _startRecording(StateSetter setModalState) async {
-    try {
-      if (await _audioRecorder.hasPermission()) {
-        final directory = await getTemporaryDirectory();
-        final path = p.join(
-          directory.path,
-          'recording_${DateTime.now().millisecondsSinceEpoch}.m4a',
-        );
-
-        const config = RecordConfig(); // Default is m4a/aac on mobile
-        await _audioRecorder.start(config, path: path);
-
-        setState(() => _isRecording = true);
-        setModalState(() {});
-      } else {
-        debugPrint("Recording permission denied");
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Microphone permission is required to record audio.'),
-          ),
-        );
+    setState(() {
+      _departments = departments;
+      _isLoadingDepartments = false;
+      // Auto-select first department if available
+      if (_departments.isNotEmpty) {
+        _selectedDepartment = _departments.first;
       }
-    } catch (e) {
-      debugPrint("Recording error: $e");
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error starting recording: $e')));
-    }
-  }
+    });
 
-  Future<void> _stopRecording() async {
-    try {
-      final path = await _audioRecorder.stop();
-      setState(() {
-        _isRecording = false;
-        if (path != null) {
-          _voiceMsg = File(path);
-        }
-      });
-    } catch (e) {
-      debugPrint("Stop recording error: $e");
-    }
-  }
-
-  Future<void> _pickVideo() async {
-    final XFile? pickedFile = await _picker.pickVideo(
-      source: ImageSource.gallery,
-    );
-    if (pickedFile != null) {
-      setState(() {
-        _video = File(pickedFile.path);
-      });
+    if (_departments.isEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No departments available. Please contact admin to create departments.',
+          ),
+          duration: Duration(seconds: 4),
+        ),
+      );
     }
   }
 
@@ -236,53 +84,93 @@ class _ReportPageState extends State<ReportPage> {
       );
       setState(() {
         _currentPosition = position;
-        // Auto-fill address? (Would need geocoding package)
+        // Auto-fill address
         _addressController.text =
             "Lat: ${position.latitude}, Lng: ${position.longitude}";
       });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location captured successfully!')),
+        );
+      }
     }
   }
 
   Future<void> _submit() async {
-    if (_titleController.text.isEmpty ||
-        _descriptionController.text.isEmpty ||
-        _addressController.text.isEmpty) {
+    // Validation
+    if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Please fill all text fields.')));
+      ).showSnackBar(const SnackBar(content: Text('Please enter issue title')));
+      return;
+    }
+
+    if (_descriptionController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please provide a description')),
+      );
+      return;
+    }
+
+    if (_addressController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter location/address')),
+      );
+      return;
+    }
+
+    if (_selectedDepartment == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a department')),
+      );
       return;
     }
 
     setState(() => _isSubmitting = true);
 
-    final error = await ApiService.submitIssue(
-      reporter: ApiService.currentUser?.name ?? 'Anonymous',
-      description: _descriptionController.text,
-      address: _addressController.text,
-      status: 'OPEN',
-      title: _titleController.text,
-      latitude: _currentPosition?.latitude ?? 0.0,
-      longitude: _currentPosition?.longitude ?? 0.0,
-      image: _image,
-      voiceMsg: _voiceMsg,
-      video: _video,
+    // Create complaint request
+    final complaintRequest = ComplaintRequest(
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
+      location: _addressController.text.trim(),
+      priority: _selectedPriority,
+      departmentId: _selectedDepartment!.id,
     );
+
+    final complaint = await ApiService.createComplaint(complaintRequest);
 
     setState(() => _isSubmitting = false);
 
-    if (error == null) {
+    if (complaint != null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Issue Submitted Successfully!')),
+          const SnackBar(
+            content: Text('Complaint submitted successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
+
+        // Clear form
+        _titleController.clear();
+        _descriptionController.clear();
+        _addressController.clear();
+        setState(() {
+          _currentPosition = null;
+          _selectedPriority = ComplaintPriority.MEDIUM;
+        });
+
         // Switch back to Home tab
         bottomBarIndex.value = 0;
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to submit complaint. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -293,264 +181,192 @@ class _ReportPageState extends State<ReportPage> {
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 63, 133, 208),
         title: const Text(
-          'Report',
+          'Report Complaint',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Issue Details",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF274E78),
+        child: _isLoadingDepartments
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "Complaint Details",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF274E78),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: _titleController,
+                              decoration: const InputDecoration(
+                                labelText: 'Complaint Title *',
+                                hintText: 'e.g., Pothole on Main St',
+                                prefixIcon: Icon(Icons.title),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: _descriptionController,
+                              maxLines: 4,
+                              decoration: const InputDecoration(
+                                labelText: 'Description *',
+                                hintText: 'Provide detailed information...',
+                                prefixIcon: Icon(Icons.description_outlined),
+                                alignLabelWithHint: true,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: _addressController,
+                              decoration: InputDecoration(
+                                labelText: 'Location/Address *',
+                                hintText: 'Enter or pick location',
+                                prefixIcon: const Icon(Icons.location_city),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.my_location),
+                                  tooltip: 'Get Current Location',
+                                  onPressed: _getLocation,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _titleController,
-                        decoration: const InputDecoration(
-                          labelText: 'Issue Title',
-                          hintText: 'e.g., Pothole on Main St',
-                          prefixIcon: Icon(Icons.title),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "Classification",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF274E78),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Department Dropdown
+                            DropdownButtonFormField<Department>(
+                              value: _selectedDepartment,
+                              decoration: const InputDecoration(
+                                labelText: 'Department *',
+                                prefixIcon: Icon(Icons.account_balance),
+                                border: OutlineInputBorder(),
+                              ),
+                              items: _departments.map((dept) {
+                                return DropdownMenuItem<Department>(
+                                  value: dept,
+                                  child: Text(dept.name),
+                                );
+                              }).toList(),
+                              onChanged: (Department? value) {
+                                setState(() {
+                                  _selectedDepartment = value;
+                                });
+                              },
+                              validator: (value) {
+                                if (value == null) {
+                                  return 'Please select a department';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Priority Selector
+                            const Text(
+                              "Priority *",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SegmentedButton<ComplaintPriority>(
+                              segments: [
+                                ButtonSegment(
+                                  value: ComplaintPriority.LOW,
+                                  label: Text(
+                                    ComplaintPriority.LOW.displayName,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.flag_outlined,
+                                    size: 18,
+                                  ),
+                                ),
+                                ButtonSegment(
+                                  value: ComplaintPriority.MEDIUM,
+                                  label: Text(
+                                    ComplaintPriority.MEDIUM.displayName,
+                                  ),
+                                  icon: const Icon(Icons.flag, size: 18),
+                                ),
+                                ButtonSegment(
+                                  value: ComplaintPriority.HIGH,
+                                  label: Text(
+                                    ComplaintPriority.HIGH.displayName,
+                                  ),
+                                  icon: const Icon(Icons.flag, size: 18),
+                                ),
+                              ],
+                              selected: {_selectedPriority},
+                              onSelectionChanged:
+                                  (Set<ComplaintPriority> selection) {
+                                    setState(() {
+                                      _selectedPriority = selection.first;
+                                    });
+                                  },
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _descriptionController,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Description',
-                          hintText: 'Provide details...',
-                          prefixIcon: Icon(Icons.description_outlined),
-                          alignLabelWithHint: true,
-                        ),
+                    ),
+                    const SizedBox(height: 24),
+                    _isSubmitting
+                        ? const Center(child: CircularProgressIndicator())
+                        : ElevatedButton(
+                            onPressed: _submit,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: const Text(
+                              "SUBMIT COMPLAINT",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '* Required fields',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                        fontStyle: FontStyle.italic,
                       ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _addressController,
-                        decoration: const InputDecoration(
-                          labelText: 'Address',
-                          hintText: 'Enter or pick location',
-                          prefixIcon: Icon(Icons.location_city),
-                        ),
-                      ),
-                    ],
-                  ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                "Attachments",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Color(0xFF274E78),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  SizedBox(
-                    width: (MediaQuery.of(context).size.width - 44) / 2,
-                    child: _buildAttachmentCard(
-                      Icons.add_photo_alternate_outlined,
-                      "Photo",
-                      _image != null,
-                      _pickImage,
-                    ),
-                  ),
-                  SizedBox(
-                    width: (MediaQuery.of(context).size.width - 44) / 2,
-                    child: _buildAttachmentCard(
-                      Icons.mic_none_outlined,
-                      "Audio",
-                      _voiceMsg != null,
-                      _pickAudio,
-                    ),
-                  ),
-                  SizedBox(
-                    width: (MediaQuery.of(context).size.width - 44) / 2,
-                    child: _buildAttachmentCard(
-                      Icons.videocam_outlined,
-                      "Video",
-                      _video != null,
-                      _pickVideo,
-                    ),
-                  ),
-                  SizedBox(
-                    width: (MediaQuery.of(context).size.width - 44) / 2,
-                    child: _buildAttachmentCard(
-                      Icons.location_on_outlined,
-                      "Location",
-                      _currentPosition != null,
-                      _getLocation,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildPreviewSection(),
-              const SizedBox(height: 24),
-              _isSubmitting
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      onPressed: _submit,
-                      child: const Text("SUBMIT REPORT"),
-                    ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPreviewSection() {
-    if (_image == null && _voiceMsg == null && _video == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Selected Attachments",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: Color(0xFF274E78),
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (_image != null)
-          _buildPreviewItem(
-            "Image",
-            Icons.image_outlined,
-            onRemove: () => setState(() => _image = null),
-            previewWidget: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                _image!,
-                height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-        if (_voiceMsg != null)
-          _buildPreviewItem(
-            "Audio Message",
-            Icons.mic_none_outlined,
-            onRemove: () => setState(() => _voiceMsg = null),
-          ),
-        if (_video != null)
-          _buildPreviewItem(
-            "Video",
-            Icons.videocam_outlined,
-            onRemove: () => setState(() => _video = null),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildPreviewItem(
-    String label,
-    IconData icon, {
-    required VoidCallback onRemove,
-    Widget? previewWidget,
-  }) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: const Color(0xFF3F85D0)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                IconButton(
-                  onPressed: onRemove,
-                  icon: const Icon(Icons.close, color: Colors.red),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-            if (previewWidget != null) ...[
-              const SizedBox(height: 8),
-              previewWidget,
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAttachmentCard(
-    IconData icon,
-    String label,
-    bool isSelected,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 100,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFE3F2FD) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF3F85D0) : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            if (!isSelected)
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 32,
-              color: isSelected ? const Color(0xFF3F85D0) : Colors.grey[600],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isSelected ? "Added" : label,
-              style: TextStyle(
-                color: isSelected ? const Color(0xFF3F85D0) : Colors.grey[600],
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -16,7 +16,6 @@ class _SignupPageState extends State<SignupPage> {
   TextEditingController passwordController = TextEditingController();
 
   TextEditingController confirmPasswordController = TextEditingController();
-  TextEditingController mobileController = TextEditingController();
 
   @override
   void dispose() {
@@ -25,7 +24,6 @@ class _SignupPageState extends State<SignupPage> {
     passwordController.dispose();
 
     confirmPasswordController.dispose();
-    mobileController.dispose();
     super.dispose();
   }
 
@@ -61,24 +59,18 @@ class _SignupPageState extends State<SignupPage> {
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                    labelText: 'Full Name',
+                    labelText: 'Full Name *',
+                    hintText: 'Enter your full name',
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
-                  controller: mobileController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Mobile Number',
-                    prefixIcon: Icon(Icons.phone_android),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
                   controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'Email (Optional)',
+                    labelText: 'Email *',
+                    hintText: 'your.email@example.com',
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                 ),
@@ -115,7 +107,23 @@ class _SignupPageState extends State<SignupPage> {
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _signup,
-                  child: const Text('SIGN UP'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text(
+                    'SIGN UP',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '* Required fields',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -150,6 +158,28 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   Future<void> _signup() async {
+    // Validate all fields
+    if (nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter your name')));
+      return;
+    }
+
+    if (emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter your email')));
+      return;
+    }
+
+    if (passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a password')));
+      return;
+    }
+
     if (passwordController.text != confirmPasswordController.text) {
       ScaffoldMessenger.of(
         context,
@@ -157,11 +187,11 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
+    // Call new API (only name, email, password)
     final error = await ApiService.signup(
-      userName: nameController.text,
+      name: nameController.text.trim(),
+      email: emailController.text.trim(),
       password: passwordController.text,
-      confirmPassword: confirmPasswordController.text,
-      mobileNumber: mobileController.text,
     );
 
     if (!mounted) return;

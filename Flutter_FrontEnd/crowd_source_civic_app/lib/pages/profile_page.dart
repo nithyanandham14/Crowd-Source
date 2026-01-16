@@ -1,9 +1,10 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use, unused_field
 
+import 'package:crowd_source_civic_app/Data/models/complaint_state.dart';
 import 'package:crowd_source_civic_app/pages/login_page.dart';
 import 'package:crowd_source_civic_app/services/api_service.dart';
-import 'package:crowd_source_civic_app/services/local_storage_service.dart';
-import 'package:crowd_source_civic_app/Data/models/dashboard_stats.dart';
+import 'package:crowd_source_civic_app/services/token_service.dart';
+import 'package:crowd_source_civic_app/Data/models/complaint.dart';
 import 'package:flutter/material.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -18,26 +19,50 @@ class _ProfilePageState extends State<ProfilePage> {
   bool valueLocation = false;
   bool valuePublicProfile = false;
 
-  DashboardStats get _userStats {
-    final user = ApiService.currentUser;
-    return LocalStorageService().getUserStats(user?.name);
+  late Future<List<Complaint>> _myComplaintsFuture;
+  int _totalComplaints = 0;
+  int _resolvedComplaints = 0;
+  int _inProgressComplaints = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMyComplaints();
+  }
+
+  void _loadMyComplaints() {
+    _myComplaintsFuture = ApiService.getMyComplaints();
+    _myComplaintsFuture.then((complaints) {
+      setState(() {
+        _totalComplaints = complaints.length;
+        _resolvedComplaints = complaints
+            .where((c) => c.status == ComplaintState.RESOLVED)
+            .length;
+        _inProgressComplaints = complaints
+            .where((c) => c.status == ComplaintState.IN_PROGRESS)
+            .length;
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final user = ApiService.currentUser;
-    final stats = _userStats;
-    final totalIssues = stats.total;
-    final resolvedIssues = stats.resolved;
-    final communityPoints = (totalIssues * 50) + (resolvedIssues * 100);
+    final communityPoints =
+        (_totalComplaints * 50) + (_resolvedComplaints * 100);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Profile')),
+      appBar: AppBar(
+        title: const Text('My Profile'),
+        backgroundColor: const Color(0xFF3F85D0),
+        foregroundColor: Colors.white,
+      ),
       body: SingleChildScrollView(
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.only(bottom: 32),
+              width: double.infinity,
               decoration: const BoxDecoration(
                 color: Color(0xFF3F85D0),
                 borderRadius: BorderRadius.only(
@@ -47,6 +72,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               child: Column(
                 children: [
+                  const SizedBox(height: 16),
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: Colors.white,
@@ -73,39 +99,18 @@ class _ProfilePageState extends State<ProfilePage> {
                       user!.email!,
                       style: TextStyle(color: Colors.white.withOpacity(0.8)),
                     ),
-                  if (user?.mobileNumber != null && user?.email == null)
-                    Text(
-                      user!.mobileNumber!,
-                      style: TextStyle(color: Colors.white.withOpacity(0.8)),
-                    ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.location_on,
-                        color: Colors.white.withOpacity(0.8),
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        user?.location ?? 'Salem, Tamil Nadu',
-                        style: TextStyle(color: Colors.white.withOpacity(0.8)),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
             Transform.translate(
               offset: const Offset(0, -20),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: Row(
                   children: [
                     Expanded(
                       child: _buildStatCard(
-                        totalIssues.toString(),
+                        _totalComplaints.toString(),
                         'Reported',
                         Colors.blue,
                       ),
@@ -113,7 +118,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildStatCard(
-                        resolvedIssues.toString(),
+                        _resolvedComplaints.toString(),
                         'Resolved',
                         Colors.green,
                       ),
@@ -184,22 +189,22 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
-                        if (totalIssues >= 1)
+                        if (_totalComplaints >= 1)
                           _buildAchievementCard(
                             "First Reporter",
                             "Reported 1st issue",
                             Icons.emoji_events,
                           ),
-                        if (resolvedIssues >= 1)
+                        if (_resolvedComplaints >= 1)
                           _buildAchievementCard(
                             "Helper",
-                            "$resolvedIssues Resolved",
+                            "$_resolvedComplaints Resolved",
                             Icons.handshake,
                           ),
-                        if (totalIssues >= 5)
+                        if (_totalComplaints >= 5)
                           _buildAchievementCard(
                             "Active Citizen",
-                            "$totalIssues Reports",
+                            "$_totalComplaints Reports",
                             Icons.local_fire_department,
                           ),
                         if (communityPoints >= 100)
@@ -344,7 +349,7 @@ class _ProfilePageState extends State<ProfilePage> {
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         value: value,
         onChanged: onChanged,
-        activeThumbColor: const Color(0xFF3F85D0),
+        activeColor: const Color(0xFF3F85D0),
       ),
     );
   }
@@ -361,15 +366,26 @@ class _ProfilePageState extends State<ProfilePage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              LocalStorageService().clearCurrentUser();
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-                (route) => false,
-              );
+            onPressed: () async {
+              // Clear JWT token
+              await TokenService.clearToken();
+              await ApiService.logout();
+
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (route) => false,
+                );
+              }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Sign Out'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              minimumSize: Size(100, 45),
+            ),
+            child: const Text(
+              'Sign Out',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

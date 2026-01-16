@@ -1,11 +1,14 @@
-import 'package:crowd_source_civic_app/Data/models/issue.dart';
+// ignore_for_file: deprecated_member_use
+
+import 'package:crowd_source_civic_app/Data/models/complaint.dart';
+import 'package:crowd_source_civic_app/Data/models/complaint_state.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class IssueDetailPage extends StatelessWidget {
-  final Issue issue;
+  final Complaint complaint;
 
-  const IssueDetailPage({super.key, required this.issue});
+  const IssueDetailPage({super.key, required this.complaint});
 
   @override
   Widget build(BuildContext context) {
@@ -13,7 +16,7 @@ class IssueDetailPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 63, 133, 208),
         title: const Text(
-          'Issue Details',
+          'Complaint Details',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
       ),
@@ -24,12 +27,18 @@ class IssueDetailPage extends StatelessWidget {
             // Header with status
             Container(
               padding: const EdgeInsets.all(20),
-              color: const Color(0xFF3F85D0),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF3F85D0), complaint.status.color],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    issue.title.isNotEmpty ? issue.title : 'No Title',
+                    complaint.title,
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -37,7 +46,27 @@ class IssueDetailPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildStatusChip(),
+                  Row(
+                    children: [
+                      _buildStatusChip(),
+                      const SizedBox(width: 8),
+                      Chip(
+                        avatar: Icon(
+                          Icons.account_balance,
+                          size: 16,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                        label: Text(
+                          complaint.departmentName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        backgroundColor: Colors.white.withOpacity(0.2),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -62,9 +91,7 @@ class IssueDetailPage extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Text(
-                        issue.description.isNotEmpty
-                            ? issue.description
-                            : 'No description provided',
+                        complaint.description,
                         style: const TextStyle(fontSize: 16),
                       ),
                     ),
@@ -95,9 +122,7 @@ class IssueDetailPage extends StatelessWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              issue.location.isNotEmpty
-                                  ? issue.location
-                                  : 'No location specified',
+                              complaint.location,
                               style: const TextStyle(fontSize: 16),
                             ),
                           ),
@@ -108,7 +133,7 @@ class IssueDetailPage extends StatelessWidget {
 
                   const SizedBox(height: 20),
 
-                  // Reporter and Date
+                  // Department and Date
                   Row(
                     children: [
                       Expanded(
@@ -116,7 +141,7 @@ class IssueDetailPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Reported By',
+                              'Department',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -129,11 +154,15 @@ class IssueDetailPage extends StatelessWidget {
                                 padding: const EdgeInsets.all(16),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.person, size: 20),
+                                    const Icon(
+                                      Icons.account_balance,
+                                      size: 20,
+                                      color: Color(0xFF3F85D0),
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        issue.reportedBy ?? 'Anonymous',
+                                        complaint.departmentName,
                                         style: const TextStyle(fontSize: 14),
                                       ),
                                     ),
@@ -167,11 +196,9 @@ class IssueDetailPage extends StatelessWidget {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        issue.reportedAt != null
-                                            ? DateFormat(
-                                                'MMM d, y',
-                                              ).format(issue.reportedAt!)
-                                            : 'Unknown',
+                                        DateFormat(
+                                          'MMM d, y',
+                                        ).format(complaint.createdAt),
                                         style: const TextStyle(fontSize: 14),
                                       ),
                                     ),
@@ -187,34 +214,36 @@ class IssueDetailPage extends StatelessWidget {
 
                   const SizedBox(height: 20),
 
-                  // Category (if available)
-                  if (issue.category != null) ...[
-                    const Text(
-                      'Category',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF274E78),
-                      ),
+                  // Complaint ID
+                  const Text(
+                    'Complaint ID',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF274E78),
                     ),
-                    const SizedBox(height: 8),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.category, size: 20),
-                            const SizedBox(width: 12),
-                            Text(
-                              issue.category!,
-                              style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.confirmation_number, size: 20),
+                          const SizedBox(width: 12),
+                          Text(
+                            '#${complaint.id}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 20),
-                  ],
+                  ),
+
+                  const SizedBox(height: 24),
 
                   // Action Buttons
                   Row(
@@ -237,7 +266,7 @@ class IssueDetailPage extends StatelessWidget {
                         child: OutlinedButton.icon(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Sharing issue...')),
+                              const SnackBar(content: Text('Sharing...')),
                             );
                           },
                           icon: const Icon(Icons.share),
@@ -256,50 +285,31 @@ class IssueDetailPage extends StatelessWidget {
   }
 
   Widget _buildStatusChip() {
-    Color backgroundColor;
-    Color textColor;
-
-    switch (issue.status.toLowerCase()) {
-      case 'pending':
-        backgroundColor = Colors.orange[100]!;
-        textColor = Colors.orange[800]!;
-        break;
-      case 'in progress':
-        backgroundColor = Colors.blue[100]!;
-        textColor = Colors.blue[800]!;
-        break;
-      case 'resolved':
-        backgroundColor = Colors.green[100]!;
-        textColor = Colors.green[800]!;
-        break;
-      default:
-        backgroundColor = Colors.grey[200]!;
-        textColor = Colors.grey[800]!;
-    }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            issue.status.toLowerCase() == 'resolved'
+            complaint.status == ComplaintState.RESOLVED
                 ? Icons.check_circle
-                : issue.status.toLowerCase() == 'in progress'
+                : complaint.status == ComplaintState.IN_PROGRESS
                 ? Icons.pending
+                : complaint.status == ComplaintState.REJECTED
+                ? Icons.cancel
                 : Icons.info,
             size: 18,
-            color: textColor,
+            color: complaint.status.color,
           ),
           const SizedBox(width: 8),
           Text(
-            issue.status,
+            complaint.status.displayName,
             style: TextStyle(
-              color: textColor,
+              color: complaint.status.color,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
