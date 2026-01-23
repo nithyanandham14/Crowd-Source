@@ -96,7 +96,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Be the first to report an issue!',
+                      'Be the first to report an issue! ',
                       style: TextStyle(color: Colors.grey[500]),
                     ),
                   ],
